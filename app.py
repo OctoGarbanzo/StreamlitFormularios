@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime
-from utils import load_data, save_data
+from database import initialize_db, save_form_data, get_organization_records
+
+# Initialize the database
+initialize_db()
 
 # Set page configuration
 st.set_page_config(
@@ -11,13 +13,13 @@ st.set_page_config(
     layout="wide"
 )
 
-# Define organizations and their data files
-ORGANIZATIONS = {
-    "ConCulturaEsparza": "data/concultura_esparza.csv",
-    "CasaJavorai": "data/casa_javorai.csv",
-    "Ofitech.lat": "data/ofitech_lat.csv",
-    "AcademiaUPC": "data/academia_upc.csv"
-}
+# Define organizations
+ORGANIZATIONS = [
+    "ConCulturaEsparza",
+    "CasaJavorai",
+    "Ofitech.lat",
+    "AcademiaUPC"
+]
 
 # Define meeting reasons
 MEETING_REASONS = [
@@ -33,9 +35,6 @@ DAYS_OF_WEEK = [
     "Viernes", "Sábado", "Domingo"
 ]
 
-# Create data directory if it doesn't exist
-os.makedirs("data", exist_ok=True)
-
 # Initialize session state for form submission status
 if 'form_submitted' not in st.session_state:
     st.session_state.form_submitted = False
@@ -47,7 +46,7 @@ st.markdown("### Seleccione una organización para completar el formulario de di
 # Organization selection
 selected_org = st.selectbox(
     "Organización:",
-    list(ORGANIZATIONS.keys()),
+    ORGANIZATIONS,
     format_func=lambda x: x
 )
 
@@ -127,9 +126,8 @@ with st.form(key=f"availability_form_{selected_org}"):
                 "Notas Adicionales": additional_notes
             }
             
-            # Save data to corresponding CSV file
-            csv_path = ORGANIZATIONS[selected_org]
-            save_success = save_data(csv_path, data)
+            # Save data to database
+            save_success = save_form_data(selected_org, data)
             
             if save_success:
                 st.session_state.form_submitted = True
@@ -144,11 +142,11 @@ if st.session_state.form_submitted:
     
 # Show organization data summary for demonstration purposes
 if st.checkbox("Ver registros (Solo para administradores)"):
-    org_file = ORGANIZATIONS[selected_org]
-    df = load_data(org_file)
+    records = get_organization_records(selected_org)
     
-    if df is not None and not df.empty:
+    if records and len(records) > 0:
         st.subheader(f"Registros de {selected_org}")
+        df = pd.DataFrame(records)
         st.dataframe(df)
     else:
         st.info(f"No hay registros disponibles para {selected_org} todavía.")

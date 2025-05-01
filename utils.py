@@ -18,7 +18,7 @@ def load_data(file_path):
             # Return empty DataFrame with predefined columns
             return pd.DataFrame(columns=[
                 "Fecha de Registro", "Nombre", "Teléfono", "Correo", 
-                "Motivo", "Días Disponibles", "Horario Preferido", "Notas Adicionales"
+                "Motivo", "Disponibilidad", "Notas Adicionales"
             ])
     except Exception as e:
         print(f"Error loading data: {e}")
@@ -45,7 +45,7 @@ def save_data(file_path, data):
         if df is None:
             df = pd.DataFrame(columns=[
                 "Fecha de Registro", "Nombre", "Teléfono", "Correo", 
-                "Motivo", "Días Disponibles", "Horario Preferido", "Notas Adicionales"
+                "Motivo", "Disponibilidad", "Notas Adicionales"
             ])
         
         # Append new data
