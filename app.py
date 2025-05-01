@@ -87,10 +87,40 @@ with st.form(key=f"availability_form_{selected_org}"):
     
     # Time preference
     st.markdown("### Seleccione su horario preferido:")
-    time_preference = st.select_slider(
-        "Horario:",
-        options=["Mañana (8AM-12PM)", "Tarde (1PM-5PM)", "Noche (6PM-9PM)"]
-    )
+    
+    # Morning and afternoon options
+    st.markdown("#### Horarios de día:")
+    day_times = {
+        "8:00 AM": st.checkbox("8:00 AM"),
+        "9:00 AM": st.checkbox("9:00 AM"),
+        "10:00 AM": st.checkbox("10:00 AM"),
+        "11:00 AM": st.checkbox("11:00 AM"),
+        "12:00 PM": st.checkbox("12:00 PM"),
+        "1:00 PM": st.checkbox("1:00 PM"),
+        "2:00 PM": st.checkbox("2:00 PM"),
+        "3:00 PM": st.checkbox("3:00 PM"),
+        "4:00 PM": st.checkbox("4:00 PM"),
+        "5:00 PM": st.checkbox("5:00 PM"),
+        "6:00 PM": st.checkbox("6:00 PM")
+    }
+    
+    # Evening options (7 PM to 10 PM as requested)
+    st.markdown("#### Horarios de noche:")
+    evening_times = {
+        "7:00 PM": st.checkbox("7:00 PM"),
+        "8:00 PM": st.checkbox("8:00 PM"),
+        "9:00 PM": st.checkbox("9:00 PM"),
+        "10:00 PM": st.checkbox("10:00 PM")
+    }
+    
+    # Combine all selected times
+    all_times = {**day_times, **evening_times}
+    selected_times = [time for time, selected in all_times.items() if selected]
+    
+    if not selected_times:
+        time_preference = "No especificado"
+    else:
+        time_preference = ", ".join(selected_times)
     
     # Add a note field
     additional_notes = st.text_area(
@@ -109,6 +139,8 @@ with st.form(key=f"availability_form_{selected_org}"):
             st.error("Por favor ingrese un correo electrónico válido")
         elif not any(availability.values()):
             st.error("Por favor seleccione al menos un día de disponibilidad")
+        elif not selected_times:
+            st.error("Por favor seleccione al menos un horario preferido")
         else:
             # Format data for storage
             selected_days = [day for day, selected in availability.items() if selected]
