@@ -35,9 +35,20 @@ DAYS_OF_WEEK = [
     "Viernes", "Sábado", "Domingo"
 ]
 
-# Initialize session state for form submission status
+# Initialize session states
 if 'form_submitted' not in st.session_state:
     st.session_state.form_submitted = False
+if 'days_confirmed' not in st.session_state:
+    st.session_state.days_confirmed = False
+if 'selected_days' not in st.session_state:
+    st.session_state.selected_days = []
+if 'contact_info' not in st.session_state:
+    st.session_state.contact_info = {
+        "name": "",
+        "phone": "",
+        "email": "",
+        "meeting_reason": ""
+    }
 
 # Title and description
 st.title("Sistema de Formularios de Disponibilidad")
@@ -53,55 +64,95 @@ selected_org = st.selectbox(
 st.markdown(f"## Formulario de Disponibilidad para {selected_org}")
 st.markdown("Complete el siguiente formulario para indicar su disponibilidad.")
 
-# Form for the selected organization
-with st.form(key=f"availability_form_{selected_org}"):
-    # Contact information
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("Nombre Completo *", placeholder="Ingrese su nombre completo")
-    with col2:
-        phone = st.text_input("Número de Teléfono *", placeholder="Ej: 1234-5678")
+# Function to reset the day confirmation
+def reset_days_selection():
+    st.session_state.days_confirmed = False
+    st.session_state.selected_days = []
+
+# Part 1: Contact information and day selection
+# We'll use a container outside the form to organize our multi-stage process
+contact_container = st.container()
+
+with contact_container:
+    with st.form(key=f"contact_and_days_form_{selected_org}"):
+        # Contact information
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Nombre Completo *", placeholder="Ingrese su nombre completo")
+        with col2:
+            phone = st.text_input("Número de Teléfono *", placeholder="Ej: 1234-5678")
+        
+        email = st.text_input("Correo Electrónico *", placeholder="ejemplo@correo.com")
+        
+        # Meeting reason
+        meeting_reason = st.selectbox(
+            "Motivo de Reunión *",
+            MEETING_REASONS
+        )
+        
+        # Availability selection for days of the week
+        st.markdown("### Seleccione los días de la semana en los que está disponible:")
+        
+        # Create two columns for days of the week
+        col1, col2 = st.columns(2)
+        
+        # Dictionary to store availability status
+        availability = {}
+        
+        # Display days of the week as selectable options
+        for i, day in enumerate(DAYS_OF_WEEK):
+            if i < 4:  # First 4 days in first column
+                with col1:
+                    availability[day] = st.checkbox(day, key=f"day_{day}")
+            else:  # Last 3 days in second column
+                with col2:
+                    availability[day] = st.checkbox(day, key=f"day_{day}")
+        
+        # Submit button for days selection
+        days_submit = st.form_submit_button("Confirmar Días Seleccionados")
+        
+        if days_submit:
+            if not name or not phone or not email:
+                st.error("Por favor complete todos los campos obligatorios marcados con *")
+            elif "@" not in email or "." not in email:
+                st.error("Por favor ingrese un correo electrónico válido")
+            elif not any(availability.values()):
+                st.error("Por favor seleccione al menos un día de disponibilidad")
+            else:
+                # Store the selected days in session state
+                st.session_state.selected_days = [day for day, selected in availability.items() if selected]
+                st.session_state.days_confirmed = True
+                st.session_state.contact_info = {
+                    "name": name,
+                    "phone": phone,
+                    "email": email,
+                    "meeting_reason": meeting_reason
+                }
+                st.rerun()  # Rerun to show the time selection form
+
+# Part 2: Time selection (only shown after days are confirmed)
+if st.session_state.days_confirmed and st.session_state.selected_days:
+    # Display the confirmed days
+    st.success(f"Días confirmados: {', '.join(st.session_state.selected_days)}")
+    st.button("Cambiar días seleccionados", on_click=reset_days_selection)
     
-    email = st.text_input("Correo Electrónico *", placeholder="ejemplo@correo.com")
-    
-    # Meeting reason
-    meeting_reason = st.selectbox(
-        "Motivo de Reunión *",
-        MEETING_REASONS
-    )
-    
-    # Set up the time slots for each day
-    time_slots = [
-        "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-        "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM",
-        "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
-    ]
-    
-    # Availability selection for days of the week
-    st.markdown("### Seleccione los días de la semana en los que está disponible:")
-    
-    # Create two columns for days of the week
-    col1, col2 = st.columns(2)
-    
-    # Dictionary to store availability status
-    availability = {}
-    
-    # Display days of the week as selectable options
-    for i, day in enumerate(DAYS_OF_WEEK):
-        if i < 4:  # First 4 days in first column
-            with col1:
-                availability[day] = st.checkbox(day, key=f"day_{day}")
-        else:  # Last 3 days in second column
-            with col2:
-                availability[day] = st.checkbox(day, key=f"day_{day}")
-    
-    # Dictionary to store time selections for each day
-    time_selections = {}
-    all_selected_times = []
-    
-    # Display time selection for each selected day
-    for day in DAYS_OF_WEEK:
-        if availability[day]:
+    # Time selection form
+    with st.form(key="time_selection_form"):
+        st.markdown("### Seleccione horarios para cada día:")
+        
+        # Set up the time slots for each day
+        time_slots = [
+            "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+            "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM",
+            "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
+        ]
+        
+        # Dictionary to store time selections for each day
+        time_selections = {}
+        all_selected_times = []
+        
+        # Display time selection for each selected day
+        for day in st.session_state.selected_days:
             st.markdown(f"#### Horarios disponibles para {day}:")
             
             # Create two columns for time slots
@@ -130,62 +181,60 @@ with st.form(key=f"availability_form_{selected_org}"):
                         if time not in time_selections[day]:
                             time_selections[day].append(time)
                             all_selected_times.append(f"{day} {time}")
-    
-    # Create a formatted string for time preference to save in database
-    if not all_selected_times:
-        time_preference_str = "No especificado"
-    else:
-        time_preference_str = "; ".join([
-            f"{day}: {', '.join(times)}" 
-            for day, times in time_selections.items() 
-            if times
-        ])
-    
-    # Add a note field
-    additional_notes = st.text_area(
-        "Notas Adicionales",
-        placeholder="Incluya cualquier información adicional o preferencias específicas..."
-    )
-    
-    # Submit button
-    submit_button = st.form_submit_button("Enviar Formulario")
-    
-    if submit_button:
-        # Validate form
-        if not name or not phone or not email:
-            st.error("Por favor complete todos los campos obligatorios marcados con *")
-        elif "@" not in email or "." not in email:
-            st.error("Por favor ingrese un correo electrónico válido")
-        elif not any(availability.values()):
-            st.error("Por favor seleccione al menos un día de disponibilidad")
-        elif not all_selected_times:
-            st.error("Por favor seleccione al menos un horario preferido")
+        
+        # Create a formatted string for time preference to save in database
+        if not all_selected_times:
+            time_preference_str = "No especificado"
         else:
-            # Format data for storage
-            selected_days = [day for day, selected in availability.items() if selected]
-            
-            # Prepare data to save
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            data = {
-                "Fecha de Registro": now,
-                "Nombre": name,
-                "Teléfono": phone,
-                "Correo": email,
-                "Motivo": meeting_reason,
-                "Días Disponibles": ", ".join(selected_days),
-                "Horario Preferido": time_preference_str,
-                "Notas Adicionales": additional_notes
-            }
-            
-            # Save data to database
-            save_success = save_form_data(selected_org, data)
-            
-            if save_success:
-                st.session_state.form_submitted = True
-                st.success("¡Formulario enviado exitosamente! Gracias por registrar su disponibilidad.")
-                st.balloons()
+            time_preference_str = "; ".join([
+                f"{day}: {', '.join(times)}" 
+                for day, times in time_selections.items() 
+                if times
+            ])
+        
+        # Add a note field
+        additional_notes = st.text_area(
+            "Notas Adicionales",
+            placeholder="Incluya cualquier información adicional o preferencias específicas..."
+        )
+        
+        # Final submit button
+        submit_button = st.form_submit_button("Enviar Formulario")
+        
+        if submit_button:
+            if not all_selected_times:
+                st.error("Por favor seleccione al menos un horario preferido")
             else:
-                st.error("Hubo un problema al guardar los datos. Por favor intente nuevamente.")
+                # Get contact information from session state
+                name = st.session_state.contact_info["name"]
+                phone = st.session_state.contact_info["phone"]
+                email = st.session_state.contact_info["email"]
+                meeting_reason = st.session_state.contact_info["meeting_reason"]
+                
+                # Prepare data to save
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                data = {
+                    "Fecha de Registro": now,
+                    "Nombre": name,
+                    "Teléfono": phone,
+                    "Correo": email,
+                    "Motivo": meeting_reason,
+                    "Días Disponibles": ", ".join(st.session_state.selected_days),
+                    "Horario Preferido": time_preference_str,
+                    "Notas Adicionales": additional_notes
+                }
+                
+                # Save data to database
+                save_success = save_form_data(selected_org, data)
+                
+                if save_success:
+                    st.session_state.form_submitted = True
+                    st.session_state.days_confirmed = False  # Reset for next submission
+                    st.session_state.selected_days = []  # Clear selected days
+                    st.success("¡Formulario enviado exitosamente! Gracias por registrar su disponibilidad.")
+                    st.balloons()
+                else:
+                    st.error("Hubo un problema al guardar los datos. Por favor intente nuevamente.")
 
 # Display success message if form was submitted successfully
 if st.session_state.form_submitted:
