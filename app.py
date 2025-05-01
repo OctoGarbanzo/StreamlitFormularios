@@ -172,16 +172,71 @@ with st.form(key=f"availability_form_{selected_org}"):
 if st.session_state.form_submitted:
     st.session_state.form_submitted = False  # Reset for next submission
     
-# Show organization data summary for demonstration purposes
-if st.checkbox("Ver registros (Solo para administradores)"):
-    records = get_organization_records(selected_org)
+# Initialize session state variables for admin authentication
+if 'admin_authenticated' not in st.session_state:
+    st.session_state.admin_authenticated = False
+if 'show_admin_login' not in st.session_state:
+    st.session_state.show_admin_login = False
+
+# Admin section with authentication
+st.markdown("---")
+st.subheader("Área de Administración")
+
+# Toggle admin login form
+if not st.session_state.admin_authenticated:
+    if st.button("Acceder como Administrador"):
+        st.session_state.show_admin_login = True
+    
+    # Display login form when button is clicked
+    if st.session_state.show_admin_login:
+        with st.form("admin_login_form"):
+            admin_username = st.text_input("Usuario", placeholder="Ingrese su usuario de administrador")
+            admin_password = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña")
+            login_submit = st.form_submit_button("Iniciar Sesión")
+            
+            if login_submit:
+                if admin_username == "admin" and admin_password == "admin":
+                    st.session_state.admin_authenticated = True
+                    st.session_state.show_admin_login = False
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos. Por favor intente nuevamente.")
+
+# Show organization data summary when authenticated
+if st.session_state.admin_authenticated:
+    st.success("Sesión de administrador iniciada correctamente.")
+    
+    st.subheader("Panel de Administración")
+    
+    # Option to select organization to view
+    admin_org_select = st.selectbox(
+        "Seleccionar organización para ver registros:",
+        ORGANIZATIONS,
+        key="admin_org_select"
+    )
+    
+    records = get_organization_records(admin_org_select)
     
     if records and len(records) > 0:
-        st.subheader(f"Registros de {selected_org}")
+        st.subheader(f"Registros de {admin_org_select}")
         df = pd.DataFrame(records)
         st.dataframe(df)
+        
+        # Add download option
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Descargar como CSV",
+            data=csv,
+            file_name=f"{admin_org_select}_registros.csv",
+            mime="text/csv"
+        )
     else:
-        st.info(f"No hay registros disponibles para {selected_org} todavía.")
+        st.info(f"No hay registros disponibles para {admin_org_select} todavía.")
+    
+    # Logout button
+    if st.button("Cerrar Sesión"):
+        st.session_state.admin_authenticated = False
+        st.rerun()
 
 # Footer
 st.markdown("---")
