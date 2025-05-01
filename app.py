@@ -70,57 +70,103 @@ with st.form(key=f"availability_form_{selected_org}"):
         MEETING_REASONS
     )
     
-    # Availability selection
+    # Set up the time slots for each day
+    time_slots = [
+        "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+        "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM",
+        "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"
+    ]
+    
+    # Initialize session state for day selection if not already present
+    if 'selected_days' not in st.session_state:
+        st.session_state.selected_days = {day: False for day in DAYS_OF_WEEK}
+    
+    if 'day_time_selections' not in st.session_state:
+        st.session_state.day_time_selections = {
+            day: {time: False for time in time_slots} for day in DAYS_OF_WEEK
+        }
+    
+    # Function to handle day selection/deselection
+    def toggle_day(day):
+        st.session_state.selected_days[day] = not st.session_state.selected_days[day]
+        # If day is deselected, reset all time selections for that day
+        if not st.session_state.selected_days[day]:
+            for time in time_slots:
+                st.session_state.day_time_selections[day][time] = False
+    
+    # Availability selection for days of the week
     st.markdown("### Seleccione los días de la semana en los que está disponible:")
     
     # Create two columns for days of the week
     col1, col2 = st.columns(2)
     
+    # Dictionary to store availability status
     availability = {}
+    
+    # Display days of the week as selectable options
     for i, day in enumerate(DAYS_OF_WEEK):
         if i < 4:  # First 4 days in first column
             with col1:
-                availability[day] = st.checkbox(day)
+                availability[day] = st.checkbox(day, value=st.session_state.selected_days[day], 
+                                               key=f"day_{day}", on_change=toggle_day, args=(day,))
         else:  # Last 3 days in second column
             with col2:
-                availability[day] = st.checkbox(day)
+                availability[day] = st.checkbox(day, value=st.session_state.selected_days[day], 
+                                               key=f"day_{day}", on_change=toggle_day, args=(day,))
     
-    # Time preference
-    st.markdown("### Seleccione su horario preferido:")
+    # Display time selection for each selected day
+    all_selected_times = []
+    time_preference = {}
     
-    # Morning and afternoon options
-    st.markdown("#### Horarios de día:")
-    day_times = {
-        "8:00 AM": st.checkbox("8:00 AM"),
-        "9:00 AM": st.checkbox("9:00 AM"),
-        "10:00 AM": st.checkbox("10:00 AM"),
-        "11:00 AM": st.checkbox("11:00 AM"),
-        "12:00 PM": st.checkbox("12:00 PM"),
-        "1:00 PM": st.checkbox("1:00 PM"),
-        "2:00 PM": st.checkbox("2:00 PM"),
-        "3:00 PM": st.checkbox("3:00 PM"),
-        "4:00 PM": st.checkbox("4:00 PM"),
-        "5:00 PM": st.checkbox("5:00 PM"),
-        "6:00 PM": st.checkbox("6:00 PM")
-    }
+    for day in DAYS_OF_WEEK:
+        if st.session_state.selected_days[day]:
+            st.markdown(f"#### Horarios disponibles para {day}:")
+            
+            # Create two columns for time slots
+            time_col1, time_col2 = st.columns(2)
+            
+            day_selected_times = []
+            
+            # Morning and afternoon options
+            with time_col1:
+                st.markdown("**Horarios de día:**")
+                for time in time_slots[:11]:  # First 11 time slots (8 AM to 6 PM)
+                    is_selected = st.checkbox(
+                        time, 
+                        value=st.session_state.day_time_selections[day][time],
+                        key=f"{day}_{time}"
+                    )
+                    st.session_state.day_time_selections[day][time] = is_selected
+                    if is_selected:
+                        day_selected_times.append(time)
+            
+            # Evening options
+            with time_col2:
+                st.markdown("**Horarios de noche:**")
+                for time in time_slots[11:]:  # Last 4 time slots (7 PM to 10 PM)
+                    is_selected = st.checkbox(
+                        time, 
+                        value=st.session_state.day_time_selections[day][time],
+                        key=f"{day}_{time}"
+                    )
+                    st.session_state.day_time_selections[day][time] = is_selected
+                    if is_selected:
+                        day_selected_times.append(time)
+            
+            # Store the selected times for this day
+            if day_selected_times:
+                time_preference[day] = day_selected_times
+                all_selected_times.extend([f"{day} {time}" for time in day_selected_times])
     
-    # Evening options (7 PM to 10 PM as requested)
-    st.markdown("#### Horarios de noche:")
-    evening_times = {
-        "7:00 PM": st.checkbox("7:00 PM"),
-        "8:00 PM": st.checkbox("8:00 PM"),
-        "9:00 PM": st.checkbox("9:00 PM"),
-        "10:00 PM": st.checkbox("10:00 PM")
-    }
-    
-    # Combine all selected times
-    all_times = {**day_times, **evening_times}
-    selected_times = [time for time, selected in all_times.items() if selected]
-    
-    if not selected_times:
-        time_preference = "No especificado"
+    # Create a formatted string for time preference to save in database
+    if not all_selected_times:
+        time_preference_str = "No especificado"
     else:
-        time_preference = ", ".join(selected_times)
+        time_preference_str = "; ".join([
+            f"{day}: {', '.join(times)}" 
+            for day, times in time_preference.items() 
+            if times
+        ])
     
     # Add a note field
     additional_notes = st.text_area(
@@ -139,7 +185,7 @@ with st.form(key=f"availability_form_{selected_org}"):
             st.error("Por favor ingrese un correo electrónico válido")
         elif not any(availability.values()):
             st.error("Por favor seleccione al menos un día de disponibilidad")
-        elif not selected_times:
+        elif not all_selected_times:
             st.error("Por favor seleccione al menos un horario preferido")
         else:
             # Format data for storage
@@ -154,7 +200,7 @@ with st.form(key=f"availability_form_{selected_org}"):
                 "Correo": email,
                 "Motivo": meeting_reason,
                 "Días Disponibles": ", ".join(selected_days),
-                "Horario Preferido": time_preference,
+                "Horario Preferido": time_preference_str,
                 "Notas Adicionales": additional_notes
             }
             
