@@ -1,6 +1,11 @@
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+import json
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
 
 # Define los ámbitos (scopes)
 SCOPES = [
@@ -17,13 +22,10 @@ def get_google_sheets_client():
     Crea y retorna un cliente de Google Sheets autenticado usando credenciales del entorno.
     """
     try:
-        import json
-        import os
-
         # Intentar obtener credenciales del secreto del entorno
         credentials_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
         if not credentials_json:
-            return None, "Variable de entorno GOOGLE_SHEETS_CREDENTIALS no encontrada"
+            return None, "Variable de entorno GOOGLE_SHEETS_CREDENTIALS no encontrada, asegúrate de que el archivo .env existe y contiene las credenciales"
         
         # Cargar credenciales desde la variable de entorno
         credentials_info = json.loads(credentials_json)
