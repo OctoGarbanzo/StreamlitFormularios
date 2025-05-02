@@ -14,15 +14,21 @@ SPREADSHEET_URL = '1b2SyDhRimFNrM5d59nYAOhZ0_03oJZoxkYXNSy4FiBI'
 
 def get_google_sheets_client():
     """
-    Crea y retorna un cliente de Google Sheets autenticado.
+    Crea y retorna un cliente de Google Sheets autenticado usando credenciales del entorno.
     """
     try:
-        credentials_file = 'credentials.json'
-        if not os.path.exists(credentials_file):
-            return None, "Archivo de credenciales no encontrado"
+        import json
+        import os
+
+        # Intentar obtener credenciales del secreto del entorno
+        credentials_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS')
+        if not credentials_json:
+            return None, "Variable de entorno GOOGLE_SHEETS_CREDENTIALS no encontrada"
         
-        credentials = Credentials.from_service_account_file(
-            credentials_file, 
+        # Cargar credenciales desde la variable de entorno
+        credentials_info = json.loads(credentials_json)
+        credentials = Credentials.from_service_account_info(
+            credentials_info, 
             scopes=SCOPES
         )
         client = gspread.authorize(credentials)
