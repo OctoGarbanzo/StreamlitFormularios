@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from database import initialize_db, save_form_data, get_organization_records
+from sheets_utils import save_form_data_to_sheets, get_organization_records_from_sheets
 
 # Initialize the database
 initialize_db()
@@ -238,11 +239,19 @@ if st.session_state.days_confirmed and st.session_state.selected_days:
                 # Save data to database
                 save_success = save_form_data(selected_org, data)
                 
+                # Save data to Google Sheets
+                sheets_success, message = save_form_data_to_sheets(selected_org, data)
+                
                 if save_success:
                     st.session_state.form_submitted = True
                     st.session_state.days_confirmed = False  # Reset for next submission
                     st.session_state.selected_days = []  # Clear selected days
-                    st.success("¡Formulario enviado exitosamente! Gracias por registrar su disponibilidad.")
+                    
+                    if sheets_success:
+                        st.success("¡Formulario enviado exitosamente! Datos guardados en base de datos local y en Google Sheets.")
+                    else:
+                        st.warning(f"Formulario guardado en base de datos local, pero hubo un problema al guardar en Google Sheets: {message}")
+                    
                     st.balloons()
                 else:
                     st.error("Hubo un problema al guardar los datos. Por favor intente nuevamente.")
@@ -294,10 +303,20 @@ if st.session_state.admin_authenticated:
         key="admin_org_select"
     )
     
-    records = get_organization_records(admin_org_select)
+    # Define options for data sources
+    data_source = st.radio(
+        "Seleccionar fuente de datos:",
+        ["Base de datos local", "Google Sheets"],
+        key="data_source"
+    )
+    
+    if data_source == "Base de datos local":
+        records = get_organization_records(admin_org_select)
+    else:
+        records = get_organization_records_from_sheets(admin_org_select)
     
     if records and len(records) > 0:
-        st.subheader(f"Registros de {admin_org_select}")
+        st.subheader(f"Registros de {admin_org_select} desde {data_source}")
         df = pd.DataFrame(records)
         st.dataframe(df)
         
@@ -306,11 +325,11 @@ if st.session_state.admin_authenticated:
         st.download_button(
             label="Descargar como CSV",
             data=csv,
-            file_name=f"{admin_org_select}_registros.csv",
+            file_name=f"{admin_org_select}_registros_{data_source}.csv",
             mime="text/csv"
         )
     else:
-        st.info(f"No hay registros disponibles para {admin_org_select} todavía.")
+        st.info(f"No hay registros disponibles para {admin_org_select} en {data_source} todavía.")
     
     # Logout button
     if st.button("Cerrar Sesión"):
