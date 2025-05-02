@@ -24,7 +24,7 @@ def initialize_db():
     )
     ''')
     
-    # Create the availability_forms table
+    # Create the availability_forms table with separate columns for each day
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS availability_forms (
         id INTEGER PRIMARY KEY,
@@ -34,8 +34,13 @@ def initialize_db():
         phone TEXT NOT NULL,
         email TEXT NOT NULL,
         meeting_reason TEXT NOT NULL,
-        available_days TEXT NOT NULL,
-        preferred_time TEXT NOT NULL,
+        Lunes TEXT NOT NULL DEFAULT 'NOHORAS',
+        Martes TEXT NOT NULL DEFAULT 'NOHORAS',
+        Miércoles TEXT NOT NULL DEFAULT 'NOHORAS',
+        Jueves TEXT NOT NULL DEFAULT 'NOHORAS',
+        Viernes TEXT NOT NULL DEFAULT 'NOHORAS',
+        Sábado TEXT NOT NULL DEFAULT 'NOHORAS',
+        Domingo TEXT NOT NULL DEFAULT 'NOHORAS',
         additional_notes TEXT,
         FOREIGN KEY (org_id) REFERENCES organizations (id)
     )
@@ -92,25 +97,34 @@ def save_form_data(organization, data):
         else:
             org_id = result[0]
         
-        # Insert the form data
+        # Construir la consulta SQL dinámicamente para incluir todos los días
+        columns = ["org_id", "registration_date", "name", "phone", "email", "meeting_reason"]
+        values = [org_id, data["Fecha de Registro"], data["Nombre"], data["Teléfono"], data["Correo"], data["Motivo"]]
+        
+        # Agregar las columnas de días
+        for day in ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]:
+            columns.append(day)
+            if day in data:
+                values.append(data[day])
+            else:
+                values.append("NOHORAS")
+        
+        # Agregar notas adicionales
+        columns.append("additional_notes")
+        values.append(data["Notas Adicionales"])
+        
+        # Construir la consulta SQL
+        placeholders = ", ".join(["?" for _ in range(len(values))])
+        columns_str = ", ".join(columns)
+        
+        # Ejecutar la consulta
         cursor.execute(
-            """
+            f"""
             INSERT INTO availability_forms (
-                org_id, registration_date, name, phone, email, 
-                meeting_reason, available_days, preferred_time, additional_notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                {columns_str}
+            ) VALUES ({placeholders})
             """,
-            (
-                org_id,
-                data["Fecha de Registro"],
-                data["Nombre"],
-                data["Teléfono"],
-                data["Correo"],
-                data["Motivo"],
-                data["Días Disponibles"],
-                data["Horario Preferido"],
-                data["Notas Adicionales"]
-            )
+            values
         )
         
         # Commit the changes
@@ -153,7 +167,7 @@ def get_organization_records(organization):
         
         org_id = result[0]
         
-        # Get all records for the organization
+        # Get all records for the organization with separate columns for each day
         cursor.execute(
             """
             SELECT 
@@ -162,8 +176,7 @@ def get_organization_records(organization):
                 phone as "Teléfono",
                 email as "Correo",
                 meeting_reason as "Motivo",
-                available_days as "Días Disponibles",
-                preferred_time as "Horario Preferido",
+                Lunes, Martes, Miércoles, Jueves, Viernes, Sábado, Domingo,
                 additional_notes as "Notas Adicionales"
             FROM availability_forms
             WHERE org_id = ?

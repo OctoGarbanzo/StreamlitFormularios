@@ -213,16 +213,27 @@ if st.session_state.days_confirmed and st.session_state.selected_days:
                 
                 # Prepare data to save
                 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Crear columnas separadas para cada día con sus horas
+                day_time_data = {}
+                for day in DAYS_OF_WEEK:
+                    if day in time_selections and time_selections[day]:
+                        day_time_data[f"{day}"] = ", ".join(time_selections[day])
+                    else:
+                        day_time_data[f"{day}"] = "NOHORAS"
+                
+                # Datos básicos
                 data = {
                     "Fecha de Registro": now,
                     "Nombre": name,
                     "Teléfono": phone,
                     "Correo": email,
                     "Motivo": meeting_reason,
-                    "Días Disponibles": ", ".join(st.session_state.selected_days),
-                    "Horario Preferido": time_preference_str,
                     "Notas Adicionales": additional_notes
                 }
+                
+                # Agregar las columnas de días
+                data.update(day_time_data)
                 
                 # Save data to database
                 save_success = save_form_data(selected_org, data)
